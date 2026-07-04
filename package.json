@@ -1,0 +1,13 @@
+{
+  "name": "combat-redux-net",
+  "version": "2.2.0",
+  "description": "Network multiplayer reinterpretation of Atari Combat (1977) - up to 4 players, binary protocol, 3D views, client-side prediction",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.19.0",
+    "ws": "^8.17.0"
+  }
+}
