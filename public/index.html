@@ -567,7 +567,8 @@ function readPad() {
   if (pad.buttons[13] && pad.buttons[13].pressed) throttle = -1;
   if (pad.buttons[14] && pad.buttons[14].pressed) turn = -1;
   if (pad.buttons[15] && pad.buttons[15].pressed) turn = 1;
-  if ((pad.buttons[0] && pad.buttons[0].pressed) || (pad.buttons[7] && pad.buttons[7].pressed)) firing = true;
+  if (pad.buttons[0] && pad.buttons[0].pressed) firing = true;
+  if (pad.buttons[7] && pad.buttons[7].value > 0.55) firing = true; // analogue trigger past half-pull
   return { turn: turn, throttle: throttle, fire: firing };
 }
 
@@ -774,12 +775,14 @@ let predicted = null;   // {x, y, a} - our own locally-simulated tank
 let pendingCmds = [];   // sent but not yet acknowledged
 let outbox = [];        // generated but not yet sent
 let nextSeq = 1;
+let dtCarry = 0;        // fractional ms carried between frames (see below)
 let visOffX = 0, visOffY = 0, visOffA = 0; // decaying correction offset
 
 function resetPrediction() {
   predicted = null;
   pendingCmds = [];
   outbox = [];
+  dtCarry = 0;
   visOffX = 0; visOffY = 0; visOffA = 0;
 }
 
@@ -833,7 +836,15 @@ function predictOwn(view, dt) {
   if (!predicted) predicted = { x: tk.x, y: tk.y, a: tk.a };
 
   const inp = currentInput();
-  const ms = Math.max(1, Math.min(50, Math.round(dt * 1000)));
+  /* Command durations are whole milliseconds on the wire, but frames
+     are not: a 60 Hz frame is 16.67 ms and naive rounding claims 17,
+     overdrawing the server's time budget by 2% and queueing input
+     into ever-growing lag. Carrying the fraction keeps the claimed
+     total exactly equal to real elapsed time. */
+  const exact = Math.min(50, dt * 1000) + dtCarry;
+  if (exact < 1) { dtCarry = exact; return; } // sub-ms frame: fold into the next
+  const ms = Math.floor(exact);
+  dtCarry = exact - ms;
   const cmd = {
     seq: nextSeq,
     tu: Math.round(clamp(inp.tu, -1, 1) * 100) / 100, // quantised exactly as the wire format,

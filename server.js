@@ -521,7 +521,10 @@ function updateTank(room, tank, dt) {
   if (!tank.alive) return;
   const p = playerBySlot(room, tank.slot);
   if (p) {
-    p.budget = Math.min(0.3, p.budget + dt);
+    /* 2% slack forgives client/server clock drift; the cap still
+       bounds any burst, so the worst a hacked client gets is an
+       imperceptible 2% speed edge */
+    p.budget = Math.min(0.3, p.budget + dt * 1.02);
     while (p.pending.length > 40) { // runaway queue: drop but still ack
       p.lastSeq = p.pending.shift().seq;
     }
